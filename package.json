@@ -1,0 +1,48 @@
+{
+  "name": "mpu6050-dmp",
+  "version": "0.1.0",
+  "description": "6-DOF MPU6050 driver providing fused orientation (quaternion), acceleration and rotational data via the on-device digital motion processor (DMP).",
+  "keywords": [
+    "mpu6050",
+    "i2clib",
+    "imu",
+    "accelerometer",
+    "gyroscope",
+    "6050"
+  ],
+  "author": "ros2jsguy <ros2jsguy@gmail.com> (https://github.com/ros2jsguy)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ros2jsguy/mpu6050-motion-data.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ros2jsguy/mpu6050-motion-data/issues"
+  },
+  "homepage": "https://github.com//ros2jsguy/mpu6050-motion-data",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint --ext .ts --format=pretty .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "printf": "^0.6.1",
+    "rpio": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^12.20.7",
+    "@types/rpio": "^2.4.0",
+    "@typescript-eslint/eslint-plugin": "^4.22.0",
+    "eslint": "^7.25.0",
+    "eslint-config-airbnb-typescript": "^12.3.1",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-formatter-pretty": "^4.0.0",
+    "eslint-plugin-eslint-comments": "^3.2.0",
+    "eslint-plugin-import": "^2.22.1",
+    "markdownlint-cli": "^0.27.1",
+    "nodemon": "^2.0.6",
+    "prettier": "^2.2.1",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.1.2"
+  }
+}
