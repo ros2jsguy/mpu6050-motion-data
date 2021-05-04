@@ -1,5 +1,5 @@
 {
-  "name": "mpu6050-dmp",
+  "name": "mpu6050-motion-data",
   "version": "0.1.0",
   "description": "6-DOF MPU6050 driver providing fused orientation (quaternion), acceleration and rotational data via the on-device digital motion processor (DMP).",
   "keywords": [
@@ -8,7 +8,8 @@
     "imu",
     "accelerometer",
     "gyroscope",
-    "6050"
+    "6050",
+    "digital motion processor"
   ],
   "author": "ros2jsguy <ros2jsguy@gmail.com> (https://github.com/ros2jsguy)",
   "license": "MIT",
