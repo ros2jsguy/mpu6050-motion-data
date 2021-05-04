@@ -7,7 +7,7 @@ An efficient MPU6050 driver based on the [I2Cdevlib library](https://www.i2cdevl
 
 # Installation
 ```
-npm install mpu6050-motion-data
+npm install @ros2jsguy/mpu6050-motion-data
 ```
 ## Digital Motion Processing
 Where this package excels over other Nodejs MPU6050 drivers is its access to the MPU6050 Digital Motion Processing (DPU) Unit. The DPU performs complex sensor fusion computation directly on the MPU6050. This can improve the performance of your application. 
@@ -35,7 +35,7 @@ sudo node <you-example.js>
 
 TypeScript example code:
 ```ts
-import { MPU6050, Gyro, Accel, Quaternion, Vector3 } from 'mpu6050-motion-data';
+import { MPU6050, Gyro, Accel, Quaternion, Vector3 } from '@ros2jsguy/mpu6050-motion-data';
 import {Utils} from '../utils';
 
 function main() {
