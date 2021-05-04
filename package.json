@@ -2,6 +2,8 @@
   "name": "@ros2jsguy/mpu6050-motion-data",
   "version": "0.1.0",
   "description": "Efficient 6-DOF MPU6050 driver providing fused orientation (quaternion), acceleration, gyro and sensor offset calibration data via the on-device digital motion processor (DMP).",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "keywords": [
     "mpu6050",
     "i2clib",
@@ -40,7 +42,6 @@
     "eslint-formatter-pretty": "^4.0.0",
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-import": "^2.22.1",
-    "markdownlint-cli": "^0.27.1",
     "nodemon": "^2.0.6",
     "prettier": "^2.2.1",
     "ts-node": "^9.1.1",

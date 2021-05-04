@@ -35,8 +35,10 @@ sudo node <you-example.js>
 
 TypeScript example code:
 ```ts
-import { MPU6050, Gyro, Accel, Quaternion, Vector3 } from '@ros2jsguy/mpu6050-motion-data';
-import {Utils} from '../utils';
+import {
+  Accel, Gyro, MotionData, MPU6050,
+  Quaternion, Utils, Vector3} 
+from '@ros2jsguy/mpu6050-motion-data';
 
 function main() {
 
