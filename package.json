@@ -1,7 +1,7 @@
 {
   "name": "mpu6050-motion-data",
   "version": "0.1.0",
-  "description": "6-DOF MPU6050 driver providing fused orientation (quaternion), acceleration and rotational data via the on-device digital motion processor (DMP).",
+  "description": "Efficient 6-DOF MPU6050 driver providing fused orientation (quaternion), acceleration and rotational data via the on-device digital motion processor (DMP).",
   "keywords": [
     "mpu6050",
     "i2clib",
