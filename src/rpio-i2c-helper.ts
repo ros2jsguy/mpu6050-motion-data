@@ -61,7 +61,6 @@ export class RpioI2CHelper implements I2CHelper {
    */
   readByte(deviceAddr: number, regAddr: Register): number {
     const status = this.readBytes(deviceAddr, regAddr, 1);
-    console.log('readbyte status: ', status);
     return this.dataBuffer.readUInt8(0);
   }
 

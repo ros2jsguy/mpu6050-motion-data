@@ -120,29 +120,6 @@ function main() {
   }
 
   console.log('Complete');
-
-  // let motionData: MotionData = {acc_x: 0, acc_y: 0, acc_z: 0, gyro_x: 0, gyro_y: 0, gyro_z: 0, pitch: 0, roll: 0};
-  // for (let i=0; i < 100; i++) {
-  //   imu.readMotionData(motionData);
-  //   console.log('data:', motionData);
-
-    // Full scale range +/- 250 degree/C as per sensitivity scale factor
-    // let Ax = acc_x/16384.0;
-    // let Ay = acc_y/16384.0;
-    // let Az = acc_z/16384.0;
-    
-    // let Gx = gyro_x/131.0;
-    // let Gy = gyro_y/131.0;
-    // let Gz = gyro_z/131.0;
-
-    // console.log('Ax:', acc_x, ' Ay:', acc_y, ' Az:', acc_z);
-    // console.log('Gx:', gyro_x, ' Gy:', gyro_y, ' Gz:', gyro_z);
-    // console.log();
-
-  //   Utls.msleep(1000);
-  // }
-
-  imu.shutdown();
 }
 
 function rad2degree(rads: number, fixed = 0) {
