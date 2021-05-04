@@ -1,11 +1,6 @@
-Dockerfile
-.travis.yml
-.eslintrc.json
-build/
-log/
-install/
-test/
-test_pkg/
+src/
+.git*
+.eslint*
 .vscode/
 .project
-.git*
+.editorconfig
