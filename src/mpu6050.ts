@@ -180,7 +180,8 @@ export class MPU6050 {
     this.i2cHelper = new RpioI2CHelper(this.i2cBaudRate);
   }
 
-  /** Power on and prepare for general usage.
+  /**
+   * Power on and prepare for general usage.
    * This will activate the device and take it out of sleep mode (which must be done
    * after start-up). This function also sets both the accelerometer and the gyroscope
    * to their most sensitive settings, namely +/- 2g and +/- 250 degrees/sec, and sets
@@ -203,26 +204,29 @@ export class MPU6050 {
     return this.i2cAddress;
   }
 
-  /** Get Device ID.
+  /**
+   * Get Device ID.
    * This register is used to verify the identity of the device (0b110100, 0x34).
    * @see Register.RA_WHO_AM_I
    * @see Register.WHO_AM_I_BIT
    * @see Register.WHO_AM_I_LENGTH
-   * @return Devices ID (6 bits only! should be 0x34)
+   * @returns Devices ID (6 bits only! should be 0x34)
    */
   getDeviceID(): number {
     return this.i2cHelper.readBits(this.getDeviceI2CAddr(), Register.RA_WHO_AM_I, WHO_AM_I_BIT, WHO_AM_I_LENGTH);
   }
 
-  /** Verify the I2C connection.
+  /**
+   * Verify the I2C connection.
    * Make sure the device is connected and responds as expected.
-   * @return True if connection is valid, false otherwise
+   * @returns True if connection is valid, false otherwise
    */
   testConnection(): boolean {
     return this.getDeviceID() === 0x34;
   }
 
-  /** Trigger a full device reset.
+  /**
+   * Trigger a full device reset.
    * A small delay of ~50ms may be desirable after triggering a reset.
    * @see MPU6050.RA_PWR_MGMT_1
    * @see MPU6050.PWR1_DEVICE_RESET_BIT
@@ -231,14 +235,15 @@ export class MPU6050 {
     this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_PWR_MGMT_1, PWR1_DEVICE_RESET_BIT, 1);
   }
 
-  /** Get sleep mode status.
+  /**
+   * Get sleep mode status.
    * Setting the SLEEP bit in the register puts the device into very low power
    * sleep mode. In this mode, only the serial interface and internal registers
    * remain active, allowing for a very low standby current. Clearing this bit
    * puts the device back into normal mode. To save power, the individual standby
    * selections for each of the gyros should be used if any gyro axis is not used
    * by the application.
-   * @return Current sleep mode enabled status
+   * @returns Current sleep mode enabled status
    * @see MPU6050.RA_PWR_MGMT_1
    * @see MPU6050.PWR1_SLEEP_BIT
    */
@@ -246,7 +251,8 @@ export class MPU6050 {
     return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_PWR_MGMT_1, PWR1_SLEEP_BIT) === 1;
   }
 
-  /** Set sleep mode status.
+  /**
+   * Set sleep mode status.
   * @param enabled New sleep mode enabled status
   * @see getSleepEnabled()
   * @see MPU6050.RA_PWR_MGMT_1
@@ -256,8 +262,9 @@ export class MPU6050 {
     this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_PWR_MGMT_1, PWR1_SLEEP_BIT, enabled ? 1 : 0);
   }
 
-  /** Get clock source setting.
-   * @return Current clock source setting
+  /**
+   * Get clock source setting.
+   * @returns Current clock source setting
    * @see MPU6050.RA_PWR_MGMT_1
    * @see MPU6050.PWR1_CLKSEL_BIT
    * @see MPU6050.PWR1_CLKSEL_LENGTH
@@ -266,36 +273,37 @@ export class MPU6050 {
     return this.i2cHelper.readBits(this.getDeviceI2CAddr(), Register.RA_PWR_MGMT_1, PWR1_CLKSEL_BIT, PWR1_CLKSEL_LENGTH);
   }
 
-  /** Set clock source setting.
-  * An internal 8MHz oscillator, gyroscope based clock, or external sources can
-  * be selected as the MPU-60X0 clock source. When the internal 8 MHz oscillator
-  * or an external source is chosen as the clock source, the MPU-60X0 can operate
-  * in low power modes with the gyroscopes disabled.
-  *
-  * Upon power up, the MPU-60X0 clock source defaults to the internal oscillator.
-  * However, it is highly recommended that the device be configured to use one of
-  * the gyroscopes (or an external clock source) as the clock reference for
-  * improved stability. The clock source can be selected according to the following table:
-  *
-  * <pre>
-  * CLK_SEL | Clock Source
-  * --------+--------------------------------------
-  * 0       | Internal oscillator
-  * 1       | PLL with X Gyro reference
-  * 2       | PLL with Y Gyro reference
-  * 3       | PLL with Z Gyro reference
-  * 4       | PLL with external 32.768kHz reference
-  * 5       | PLL with external 19.2MHz reference
-  * 6       | Reserved
-  * 7       | Stops the clock and keeps the timing generator in reset
-  * </pre>
-  *
-  * @param source New clock source setting
-  * @see getClockSource()
-  * @see MPU6050.RA_PWR_MGMT_1
-  * @see MPU6050.PWR1_CLKSEL_BIT
-  * @see MPU6050.PWR1_CLKSEL_LENGTH
-  */
+  /**
+   * Set clock source setting.
+   * An internal 8MHz oscillator, gyroscope based clock, or external sources can
+   * be selected as the MPU-60X0 clock source. When the internal 8 MHz oscillator
+   * or an external source is chosen as the clock source, the MPU-60X0 can operate
+   * in low power modes with the gyroscopes disabled.
+   *
+   * Upon power up, the MPU-60X0 clock source defaults to the internal oscillator.
+   * However, it is highly recommended that the device be configured to use one of
+   * the gyroscopes (or an external clock source) as the clock reference for
+   * improved stability. The clock source can be selected according to the following table:
+   *
+   * <pre>
+   * CLK_SEL | Clock Source
+   * --------+--------------------------------------
+   * 0       | Internal oscillator
+   * 1       | PLL with X Gyro reference
+   * 2       | PLL with Y Gyro reference
+   * 3       | PLL with Z Gyro reference
+   * 4       | PLL with external 32.768kHz reference
+   * 5       | PLL with external 19.2MHz reference
+   * 6       | Reserved
+   * 7       | Stops the clock and keeps the timing generator in reset
+   * </pre>
+   *
+   * @param source New clock source setting
+   * @see getClockSource()
+   * @see MPU6050.RA_PWR_MGMT_1
+   * @see MPU6050.PWR1_CLKSEL_BIT
+   * @see MPU6050.PWR1_CLKSEL_LENGTH
+   */
   setClockSource(source: ClockSource): void {
     this.i2cHelper.writeBits(this.getDeviceI2CAddr(), Register.RA_PWR_MGMT_1, PWR1_CLKSEL_BIT, PWR1_CLKSEL_LENGTH, source);
   }
@@ -318,23 +326,25 @@ export class MPU6050 {
    * For a diagram of the gyroscope and accelerometer signal paths, see Section 8
    * of the MPU-6000/MPU-6050 Product Specification document.
    *
-   * @return Current sample rate
+   * @returns Current sample rate
    * @see MPU6050.RA_SMPLRT_DIV
    */
   getRate(): number {
     return this.i2cHelper.readByte(this.getDeviceI2CAddr(), Register.RA_SMPLRT_DIV);
   }
 
-  /** Set gyroscope sample rate divider.
-  * @param rate New sample rate divider
-  * @see getRate()
-  * @see MPU6050.RA_SMPLRT_DIV
-  */
+  /**
+   * Set gyroscope sample rate divider.
+   * @param rate New sample rate divider
+   * @see getRate()
+   * @see MPU6050.RA_SMPLRT_DIV
+   */
   setRate(rate: number): void {
     this.i2cHelper.writeByte(this.getDeviceI2CAddr(), Register.RA_SMPLRT_DIV, rate);
   }
 
-  /** Get full-scale gyroscope range.
+  /**
+   * Get full-scale gyroscope range.
    * The FS_SEL parameter allows setting the full-scale range of the gyro sensors,
    * as described in the table below.
    *
@@ -345,7 +355,7 @@ export class MPU6050 {
    * 3 = +/- 2000 degrees/sec
    * </pre>
    *
-   * @return Current full-scale gyroscope range setting
+   * @returns Current full-scale gyroscope range setting
    * @see MPU6050.GYRO_FS_250
    * @see MPU6050.RA_GYRO_CONFIG
    * @see MPU6050.GCONFIG_FS_SEL_BIT
@@ -355,19 +365,21 @@ export class MPU6050 {
     return this.i2cHelper.readBits(this.getDeviceI2CAddr(), Register.RA_GYRO_CONFIG, GCONFIG_FS_SEL_BIT, GCONFIG_FS_SEL_LENGTH);
   }
 
-  /** Set full-scale gyroscope range.
-  * @param range New full-scale gyroscope range value
-  * @see getFullScaleRange()
-  * @see MPU6050.GYRO_FS_250
-  * @see MPU6050.RA_GYRO_CONFIG
-  * @see MPU6050.GCONFIG_FS_SEL_BIT
-  * @see MPU6050.GCONFIG_FS_SEL_LENGTH
-  */
+  /**
+   * Set full-scale gyroscope range.
+   * @param range New full-scale gyroscope range value
+   * @see getFullScaleRange()
+   * @see MPU6050.GYRO_FS_250
+   * @see MPU6050.RA_GYRO_CONFIG
+   * @see MPU6050.GCONFIG_FS_SEL_BIT
+   * @see MPU6050.GCONFIG_FS_SEL_LENGTH
+   */
   setFullScaleGyroRange(range: number): void {
     this.i2cHelper.writeBits(this.getDeviceI2CAddr(), Register.RA_GYRO_CONFIG, GCONFIG_FS_SEL_BIT, GCONFIG_FS_SEL_LENGTH, range);
   }
 
-  /** Get full-scale accelerometer range.
+  /**
+   * Get full-scale accelerometer range.
    * The FS_SEL parameter allows setting the full-scale range of the accelerometer
    * sensors, as described in the table below.
    *
@@ -378,7 +390,7 @@ export class MPU6050 {
    * 3 = +/- 16g
    * </pre>
    *
-   * @return Current full-scale accelerometer range setting
+   * @returns Current full-scale accelerometer range setting
    * @see MPU6050.ACCEL_FS_2
    * @see MPU6050.RA_ACCEL_CONFIG
    * @see MPU6050.ACONFIG_AFS_SEL_BIT
@@ -388,19 +400,21 @@ export class MPU6050 {
     return this.i2cHelper.readBits(this.getDeviceI2CAddr(), Register.RA_ACCEL_CONFIG, ACONFIG_AFS_SEL_BIT, ACONFIG_AFS_SEL_LENGTH);
   }
 
-  /** Set full-scale accelerometer range.
-  * @param range New full-scale accelerometer range setting
-  * @see getFullScaleAccelRange()
-  */
+  /**
+   * Set full-scale accelerometer range.
+   * @param range New full-scale accelerometer range setting
+   * @see getFullScaleAccelRange()
+   */
   setFullScaleAccelRange(range: AccelFsRange): void {
     this.i2cHelper.writeBits(this.getDeviceI2CAddr(), Register.RA_ACCEL_CONFIG, ACONFIG_AFS_SEL_BIT, ACONFIG_AFS_SEL_LENGTH, range);
   }
 
-  /** Get accelerometer FIFO enabled value.
+  /**
+   * Get accelerometer FIFO enabled value.
    * When set to 1, this bit enables ACCEL_XOUT_H, ACCEL_XOUT_L, ACCEL_YOUT_H,
    * ACCEL_YOUT_L, ACCEL_ZOUT_H, and ACCEL_ZOUT_L (Registers 59 to 64) to be
    * written into the FIFO buffer.
-   * @return Current accelerometer FIFO enabled value
+   * @returns Current accelerometer FIFO enabled value
    * @see MPU6050.RA_FIFO_EN
    */
   getAccelFIFOEnabled(): boolean {
@@ -408,88 +422,97 @@ export class MPU6050 {
   
   }
 
-  /** Set accelerometer FIFO enabled value.
-  * @param enabled New accelerometer FIFO enabled value
-  * @see getAccelFIFOEnabled()
-  * @see MPU6050.RA_FIFO_EN
-  */
+  /**
+   * Set accelerometer FIFO enabled value.
+   * @param enabled New accelerometer FIFO enabled value
+   * @see getAccelFIFOEnabled()
+   * @see MPU6050.RA_FIFO_EN
+   */
   setAccelFIFOEnabled(enabled: boolean): void {
     this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_FIFO_EN, ACCEL_FIFO_EN_BIT, enabled ? 1 : 0);
   }
 
-  /** Get gyroscope X-axis FIFO enabled value.
-  * When set to 1, this bit enables GYRO_XOUT_H and GYRO_XOUT_L (Registers 67 and
-  * 68) to be written into the FIFO buffer.
-  * @return Current gyroscope X-axis FIFO enabled value
-  * @see MPU6050_RA_FIFO_EN
-  */
+  /**
+   * Get gyroscope X-axis FIFO enabled value.
+   * When set to 1, this bit enables GYRO_XOUT_H and GYRO_XOUT_L (Registers 67 and
+   * 68) to be written into the FIFO buffer.
+   * @returns Current gyroscope X-axis FIFO enabled value
+   * @see MPU6050_RA_FIFO_EN
+   */
   getXGyroFIFOEnabled(): boolean {
     return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_FIFO_EN, XG_FIFO_EN_BIT) === 1;
   }
 
-  /** Set gyroscope X-axis FIFO enabled value.
-  * @param enabled New gyroscope X-axis FIFO enabled value
-  * @see getXGyroFIFOEnabled()
-  * @see MPU6050_RA_FIFO_EN
-  */
+  /**
+   * Set gyroscope X-axis FIFO enabled value.
+   * @param enabled New gyroscope X-axis FIFO enabled value
+   * @see getXGyroFIFOEnabled()
+   * @see MPU6050_RA_FIFO_EN
+   */
   setXGyroFIFOEnabled(enabled: boolean): void {
       this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_FIFO_EN, XG_FIFO_EN_BIT, enabled ? 1 : 0);
   }
 
-  /** Get gyroscope Y-axis FIFO enabled value.
-  * When set to 1, this bit enables GYRO_YOUT_H and GYRO_YOUT_L (Registers 69 and
-  * 70) to be written into the FIFO buffer.
-  * @return Current gyroscope Y-axis FIFO enabled value
-  * @see MPU6050_RA_FIFO_EN
-  */
+  /**
+   * Get gyroscope Y-axis FIFO enabled value.
+   * When set to 1, this bit enables GYRO_YOUT_H and GYRO_YOUT_L (Registers 69 and
+   * 70) to be written into the FIFO buffer.
+   * @returns Current gyroscope Y-axis FIFO enabled value
+   * @see MPU6050_RA_FIFO_EN
+   */
   getYGyroFIFOEnabled(): boolean {
       return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_FIFO_EN, YG_FIFO_EN_BIT) === 1;
   }
 
-  /** Set gyroscope Y-axis FIFO enabled value.
-  * @param enabled New gyroscope Y-axis FIFO enabled value
-  * @see getYGyroFIFOEnabled()
-  * @see MPU6050_RA_FIFO_EN
-  */
+  /**
+   * Set gyroscope Y-axis FIFO enabled value.
+   * @param enabled New gyroscope Y-axis FIFO enabled value
+   * @see getYGyroFIFOEnabled()
+   * @see MPU6050_RA_FIFO_EN
+   */
   setYGyroFIFOEnabled(enabled: boolean): void {
       this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_FIFO_EN, YG_FIFO_EN_BIT, enabled ? 1 : 0);
   }
 
-  /** Get gyroscope Z-axis FIFO enabled value.
-  * When set to 1, this bit enables GYRO_ZOUT_H and GYRO_ZOUT_L (Registers 71 and
-  * 72) to be written into the FIFO buffer.
-  * @return Current gyroscope Z-axis FIFO enabled value
-  * @see MPU6050_RA_FIFO_EN
-  */
+  /**
+   * Get gyroscope Z-axis FIFO enabled value.
+   * When set to 1, this bit enables GYRO_ZOUT_H and GYRO_ZOUT_L (Registers 71 and
+   * 72) to be written into the FIFO buffer.
+   * @returns Current gyroscope Z-axis FIFO enabled value
+   * @see MPU6050_RA_FIFO_EN
+   */
   getZGyroFIFOEnabled(): boolean {
       return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_FIFO_EN, ZG_FIFO_EN_BIT) === 1;
   }
 
-  /** Set gyroscope Z-axis FIFO enabled value.
-  * @param enabled New gyroscope Z-axis FIFO enabled value
-  * @see getZGyroFIFOEnabled()
-  * @see MPU6050_RA_FIFO_EN
-  */
+  /**
+   * Set gyroscope Z-axis FIFO enabled value.
+   * @param enabled New gyroscope Z-axis FIFO enabled value
+   * @see getZGyroFIFOEnabled()
+   * @see MPU6050_RA_FIFO_EN
+   */
   setZGyroFIFOEnabled(enabled: boolean): void {
     this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_FIFO_EN, ZG_FIFO_EN_BIT, enabled ? 1 : 0);
   }
 
-  /** Get interrupt logic level mode.
- * Will be set 0 for active-high, 1 for active-low.
- * @return Current interrupt mode (0=active-high, 1=active-low)
- * @see MPU6050.RA_INT_PIN_CFG
- * @see MPU6050.INTCFG_INT_LEVEL_BIT
- */
+  /**
+   * Get interrupt logic level mode.
+   * Will be set 0 for active-high, 1 for active-low.
+   * @returns Current interrupt mode (0=active-high, 1=active-low)
+   * @see MPU6050.RA_INT_PIN_CFG
+   * @see MPU6050.INTCFG_INT_LEVEL_BIT
+   */
   getInterruptMode(): number {
     return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_INT_PIN_CFG, INTCFG_INT_LEVEL_BIT);
   }
 
-  /** Set interrupt logic level mode.
-  * @param mode New interrupt mode (0=active-high, 1=active-low)
-  * @see getInterruptMode()
-  * @see MPU6050.RA_INT_PIN_CFG
-  * @see MPU6050.INTCFG_INT_LEVEL_BIT
-  */
+  /** 
+   * Set interrupt logic level mode.
+   * @param mode New interrupt mode (0=active-high, 1=active-low)
+   * @see getInterruptMode()
+   * @see MPU6050.RA_INT_PIN_CFG
+   * @see MPU6050.INTCFG_INT_LEVEL_BIT
+   */
   setInterruptMode(mode: boolean): void {
     this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_INT_PIN_CFG, INTCFG_INT_LEVEL_BIT, mode ? 1 : 0);
   }
@@ -498,7 +521,7 @@ export class MPU6050 {
    * Get full interrupt enabled status.
    * Full register byte for all interrupts, for quick reading. Each bit will be
    * set 0 for disabled, 1 for enabled.
-   * @return Current interrupt enabled status
+   * @returns Current interrupt enabled status
    * @see MPU6050.RA_INT_ENABLE
    * @see MPU6050.INTERRUPT_FF_BIT
    */
@@ -506,21 +529,47 @@ export class MPU6050 {
     return this.i2cHelper.readByte(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE);
   }
 
-  /** Set full interrupt enabled status.
-  * Full register byte for all interrupts, for quick reading. Each bit should be
-  * set 0 for disabled, 1 for enabled.
-  * @param enabled New interrupt enabled status
-  * @see getIntFreefallEnabled()
-  * @see MPU6050.RA_INT_ENABLE
-  * @see MPU6050.INTERRUPT_FF_BIT
-  */
+  /**
+   * Set full interrupt enabled status.
+   * Full register byte for all interrupts, for quick reading. Each bit should be
+   * set 0 for disabled, 1 for enabled.
+   * @param enabled New interrupt enabled status
+   * @see getIntFreefallEnabled()
+   * @see MPU6050.RA_INT_ENABLE
+   * @see MPU6050.INTERRUPT_FF_BIT
+   */
   setIntEnabled(enabled: number): void {
     this.i2cHelper.writeByte(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, enabled);
   }
 
-  /** Get FIFO Buffer Overflow interrupt enabled status.
+  /** 
+   * Get FSYNC pin interrupt enabled setting.
    * Will be set 0 for disabled, 1 for enabled.
-   * @return Current interrupt enabled status
+   * @returns Current interrupt enabled setting
+   * @see RegisterRA_INT_PIN_CFG
+   * @see INTCFG_FSYNC_INT_EN_BIT
+   */
+  getFSyncInterruptEnabled(): boolean {
+    return this.i2cHelper.readBit(this.getDeviceI2CAddr(), 
+      Register.RA_INT_PIN_CFG, INTCFG_FSYNC_INT_EN_BIT) !== 0 ? true : false;
+  }
+
+  /**
+   * Set FSYNC pin interrupt enabled setting.
+   * @param enabled New FSYNC pin interrupt enabled setting
+   * @see getFSyncInterruptEnabled()
+   * @see MPU6050_RA_INT_PIN_CFG
+   * @see MPU6050_INTCFG_FSYNC_INT_EN_BIT
+   */
+  setFSyncInterruptEnabled(enabled: boolean): void {
+    this.i2cHelper.writeBit(this.getDeviceI2CAddr(), 
+      Register.RA_INT_PIN_CFG, INTCFG_FSYNC_INT_EN_BIT, enabled ? 1 : 0);
+  }
+
+  /**
+   * Get FIFO Buffer Overflow interrupt enabled status.
+   * Will be set 0 for disabled, 1 for enabled.
+   * @returns Current interrupt enabled status
    * @see MPU6050.RA_INT_ENABLE
    * @see MPU6050.INTERRUPT_FIFO_OFLOW_BIT
    */
@@ -528,20 +577,22 @@ export class MPU6050 {
     return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, INTERRUPT_FIFO_OFLOW_BIT) === 1;
   }
 
-  /** Set FIFO Buffer Overflow interrupt enabled status.
-  * @param enabled New interrupt enabled status
-  * @see getIntFIFOBufferOverflowEnabled()
-  * @see MPU6050.RA_INT_ENABLE
-  * @see MPU6050.INTERRUPT_FIFO_OFLOW_BIT
-  */
+  /**
+   * Set FIFO Buffer Overflow interrupt enabled status.
+   * @param enabled New interrupt enabled status
+   * @see getIntFIFOBufferOverflowEnabled()
+   * @see MPU6050.RA_INT_ENABLE
+   * @see MPU6050.INTERRUPT_FIFO_OFLOW_BIT
+   */
   setIntFIFOBufferOverflowEnabled(enabled: boolean): void {
     this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, INTERRUPT_FIFO_OFLOW_BIT, enabled ? 1 : 0);
   }
 
-  /** Get Data Ready interrupt enabled setting.
+  /**
+   * Get Data Ready interrupt enabled setting.
    * This event occurs each time a write operation to all of the sensor registers
    * has been completed. Will be set 0 for disabled, 1 for enabled.
-   * @return Current interrupt enabled status
+   * @returns Current interrupt enabled status
    * @see MPU6050.RA_INT_ENABLE
    * @see MPU6050.INTERRUPT_DATA_RDY_BIT
    */
@@ -549,7 +600,8 @@ export class MPU6050 {
     return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, INTERRUPT_DATA_RDY_BIT) === 1;
   }
 
-  /** Set Data Ready interrupt enabled status.
+  /**
+   * Set Data Ready interrupt enabled status.
   * @param enabled New interrupt enabled status
   * @see getIntDataReadyEnabled()
   * @see MPU6050.RA_INT_CFG
@@ -559,21 +611,23 @@ export class MPU6050 {
     this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, INTERRUPT_DATA_RDY_BIT, enabled ? 1 : 0);
   }
 
-  /** Get full set of interrupt status bits.
+  /**
+   * Get full set of interrupt status bits.
    * These bits clear to 0 after the register has been read. Very useful
    * for getting multiple INT statuses, since each single bit read clears
    * all of them because it has to read the whole byte.
-   * @return Current interrupt status
+   * @returns Current interrupt status
    * @see MPU6050.RA_INT_STATUS
    */
   getIntStatus(): number {
     return this.i2cHelper.readByte(this.getDeviceI2CAddr(), Register.RA_INT_STATUS);
   }
 
-  /** Get Data Ready interrupt status.
+  /**
+   * Get Data Ready interrupt status.
    * This bit automatically sets to 1 when a Data Ready interrupt has been
    * generated. The bit clears to 0 after the register has been read.
-   * @return Current interrupt status
+   * @returns Current interrupt status
    * @see MPU6050.RA_INT_STATUS
    * @see MPU6050.INTERRUPT_DATA_RDY_BIT
    */
@@ -581,11 +635,12 @@ export class MPU6050 {
     return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_INT_STATUS, INTERRUPT_DATA_RDY_BIT) === 1;
   }
 
-  /** Get FIFO enabled status.
+  /**
+   * Get FIFO enabled status.
    * When this bit is set to 0, the FIFO buffer is disabled. The FIFO buffer
    * cannot be written to or read from while disabled. The FIFO buffer's state
    * does not change unless the MPU-60X0 is power cycled.
-   * @return Current FIFO enabled status
+   * @returns Current FIFO enabled status
    * @see MPU6050.RA_USER_CTRL
    * @see MPU6050.USERCTRL_FIFO_EN_BIT
    */
@@ -593,17 +648,19 @@ export class MPU6050 {
     return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_USER_CTRL, USERCTRL_FIFO_EN_BIT) !== 0; 
   }
 
-  /** Set FIFO enabled status.
-  * @param enabled New FIFO enabled status
-  * @see getFIFOEnabled()
-  * @see MPU6050.RA_USER_CTRL
-  * @see MPU6050.USERCTRL_FIFO_EN_BIT
-  */
+  /**
+   * Set FIFO enabled status.
+   * @param enabled New FIFO enabled status
+   * @see getFIFOEnabled()
+   * @see MPU6050.RA_USER_CTRL
+   * @see MPU6050.USERCTRL_FIFO_EN_BIT
+   */
   setFIFOEnabled(enabled: boolean): void {
     this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_USER_CTRL, USERCTRL_FIFO_EN_BIT, enabled ? 1 : 0);
   }
 
-  /** Reset the FIFO.
+  /**
+   * Reset the FIFO.
    * This bit resets the FIFO buffer when set to 1 while FIFO_EN equals 0. This
    * bit automatically clears to 0 after the reset has been triggered.
    * @see MPU6050.RA_USER_CTRL
@@ -613,19 +670,21 @@ export class MPU6050 {
     this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_USER_CTRL, USERCTRL_FIFO_RESET_BIT, 1);
   }
 
-  /** Get current FIFO buffer size.
+  /**
+   * Get current FIFO buffer size.
    * This value indicates the number of bytes stored in the FIFO buffer. This
    * number is in turn the number of bytes that can be read from the FIFO buffer
    * and it is directly proportional to the number of samples available given the
    * set of sensor data bound to be stored in the FIFO (register 35 and 36).
-   * @return Current FIFO buffer size
+   * @returns Current FIFO buffer size
    */
   getFIFOCount(): number {
     const buf = this.i2cHelper.readBytes(this.getDeviceI2CAddr(), Register.RA_FIFO_COUNTH, 2);
     return buf.readUInt16BE(0);
   }
 
-  /** Get byte from FIFO buffer.
+  /**
+   * Get byte from FIFO buffer.
    * This register is used to read and write data from the FIFO buffer. Data is
    * written to the FIFO in order of register number (from lowest to highest). If
    * all the FIFO enable flags (see below) are enabled and all External Sensor
@@ -648,7 +707,7 @@ export class MPU6050 {
    * should check FIFO_COUNT to ensure that the FIFO buffer is not read when
    * empty.
    *
-   * @return Byte from FIFO buffer
+   * @returns Byte from FIFO buffer
    */
   getFIFOByte(): number {
     return this.i2cHelper.readByte(this.getDeviceI2CAddr(), Register.RA_FIFO_R_W);
@@ -660,7 +719,8 @@ export class MPU6050 {
     return this.i2cHelper.readBytes(this.getDeviceI2CAddr(), Register.RA_FIFO_R_W, length);
   }
 
-  /** Get raw 6-axis motion sensor readings (accel/gyro).
+  /**
+   * Get raw 6-axis motion sensor readings (accel/gyro).
    * Retrieves all currently available motion sensor values.
    * @see getAcceleration()
    * @see getRotation()
@@ -855,7 +915,7 @@ export class MPU6050 {
 
   // BANK_SEL register
   // uint8_t bank, bool prefetchEnabled, bool userBank
-  setMemoryBank(bank: number, prefetchEnabled = false, userBank = false): void {
+  protected setMemoryBank(bank: number, prefetchEnabled = false, userBank = false): void {
     let bnk = bank & 0x1F;
     if (userBank) bnk |= 0x20;
     if (prefetchEnabled) bnk |= 0x40;
@@ -864,12 +924,12 @@ export class MPU6050 {
 
   // MEM_START_ADDR register
 
-  setMemoryStartAddress(address: number): void {
+  protected setMemoryStartAddress(address: number): void {
     this.i2cHelper.writeByte(this.getDeviceI2CAddr(), Register.RA_MEM_START_ADDR, address);
   }
 
   // uint8_t *data, uint16_t dataSize, uint8_t bank, uint8_t address, bool verify
-  writeProgMemoryBlock(data: Uint8Array, bank = 0, address = 0, verify = true): void {
+  protected writeProgMemoryBlock(data: Uint8Array, bank = 0, address = 0, verify = true): void {
     return this.writeMemoryBlock(data, bank, address, verify, true);
   }
 
@@ -1102,8 +1162,8 @@ export class MPU6050 {
   }
 
   /**
-    @brief      Fully calibrate Accel from ZERO in about 6-7 Loops 600-700 readings
-  */
+   * Fully calibrate Accel from ZERO in about 6-7 Loops 600-700 readings
+   */
   calibrateAccel(loops: number): void {
     let kP = 0.3;
     let kI = 20;
@@ -1114,7 +1174,7 @@ export class MPU6050 {
   }
 
   // uint8_t ReadAddress, float kP,float kI, uint8_t Loops
-  PID(ReadAddress: number, kP: number, kI: number, Loops: number): void {
+  protected PID(ReadAddress: number, kP: number, kI: number, Loops: number): void {
     // eslint-disable-next-line no-nested-ternary
     const SaveAddress = ReadAddress === 0x3B ? (this.getDeviceID() < 0x38  ? 0x06 : 0x77) : 0x13;
     let Data: number; // 
