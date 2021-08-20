@@ -27,6 +27,7 @@ module.exports = {
     "import/first": "off",
     "class-methods-use-this": "off",
     "lines-between-class-members": "off",
+    "eslint-comments/no-unlimited-disable": "off",
     "@typescript-eslint/no-unused-vars": "off",
     "@typescript-eslint/no-plusplus": "off",
     "@typescript-eslint/no-continue": "off",
@@ -34,6 +35,7 @@ module.exports = {
     "@typescript-eslint/lines-between-class-members": "off",
     "@typescript-eslint/class-methods-use-this": "off",
     "@typescript-eslint/no-non-null-assertion": "off",
+    "@typescript-eslint/no-namespace": "off",
 
     // Too restrictive, writing ugly code to defend against a very unlikely scenario: https://eslint.org/docs/rules/no-prototype-builtins
     "no-prototype-builtins": "off",

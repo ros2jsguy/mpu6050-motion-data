@@ -7,6 +7,8 @@ import {Register} from './mpu6050';
  */
 export interface I2CHelper {
   
+  shutdown(): void;
+  
   /** Read a single bit from an 8-bit device register.
    * @param deviceAddr I2C slave device address
    * @param regAddr Register regAddr to read from

@@ -1,8 +1,11 @@
 {
   "name": "@ros2jsguy/mpu6050-motion-data",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Efficient 6-DOF MPU6050 driver providing fused orientation (quaternion), acceleration, gyro and sensor offset calibration data via the on-device digital motion processor (DMP).",
   "main": "dist/index.js",
+  "bin": {
+    "calibrate": "./dist/calibrate.js"
+  },
   "types": "dist/index.d.ts",
   "keywords": [
     "mpu6050",
@@ -26,13 +29,16 @@
   "scripts": {
     "build": "tsc",
     "lint": "eslint --ext .ts --format=pretty .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "calibrate": "sudo node dist/"
   },
   "dependencies": {
+    "onoff": "^6.0.3",
     "printf": "^0.6.1",
-    "rpio": "^2.4.2"
+    "rpio": "^2.4.2",
+    "three-math-ts": "^0.127.1"
   },
   "devDependencies": {
+    "@types/i2c-bus": "^5.1.0",
     "@types/node": "^12.20.7",
     "@types/rpio": "^2.4.0",
     "@typescript-eslint/eslint-plugin": "^4.22.0",

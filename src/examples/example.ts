@@ -1,4 +1,4 @@
-import { MPU6050, AccelFsRange, GyroFsRange, ClockDiv, ClockSource, Gyro, Accel, Quaternion, Vector3 } from "../mpu6050";
+import { MPU6050, AccelFsRange, GyroFsRange, ClockDiv, ClockSource, Data3D, Quaternion, Vector3 } from "../mpu6050";
 import {Utils} from '../utils';
 
 function main() {
@@ -9,10 +9,10 @@ function main() {
   console.log('Device connected:', imu.testConnection());
   console.log('DeviceId:', imu.getDeviceID());
 
-  imu.setRate(4); // 1khz / (1 + 4) = 200 Hz
+  // imu.setRate(4); // 1khz / (1 + 4) = 200 Hz
   console.log('Rate: ', imu.getRate());
 
-  console.log('Device Offsets')
+  console.log('Uncalibrated Device Offsets')
   console.log('XAOffset:', imu.getXAccelOffset());
   console.log('YAOffset:', imu.getYAccelOffset());
   console.log('ZAOffset:', imu.getZAccelOffset());
@@ -27,10 +27,10 @@ function main() {
     Utils.msleep(500);
   }
 
-  console.log('Initialize DMP...');
+  console.log('Setup calibration offsets and initialize DMP...');
   imu.dmpInitialize();
-  imu.calibrateAccel(6);
-  imu.calibrateGyro(6);
+  imu.calibrateAccel();
+  imu.calibrateGyro();
   imu.printActiveOffsets();
   imu.setDMPEnabled(true);
 
@@ -68,15 +68,13 @@ function main() {
     console.log('  dmpGyro:', gyro);
     console.log('  dmpAccel:', accel);
     console.log('  dmpQuaternion:', quaternion);
-    console.log('  dmpEuler:', euler.phi, euler.theta, euler.psi);
+    console.log('  dmpEuler:', euler.x, euler.y, euler.z);
     console.log('  dmpGravity:', gravity.x, gravity.y, gravity.z);
     console.log('  dmpLinearAccel:', linearAccel);
     console.log('  dmpRPY ', 
       ' roll:', rpy.roll * 180 / Math.PI, 
       ' pitch:', rpy.pitch * 180 / Math.PI, 
       ' yaw:', rpy.yaw * 180 / Math.PI);
-    
-    // console.log('linearAccel', accel.acc_x * 8.0 / 65536 * 9.81, accel.acc_y * 8.0 / 65536 * 9.81, accel.acc_z * 8.0 / 65536 * 9.81,)
    
     break;
   }
@@ -85,15 +83,27 @@ function main() {
   console.log('DMP FIFO Access Test');
   let start = Date.now();
   let cnt = 1;
+  let fails = 0;
   const maxLoops = 1000;
   while (cnt < maxLoops) {
-    const buf = imu.dmpGetCurrentFIFOPacket();
+    let buf: Buffer | undefined;
+    try {
+      buf = imu.dmpGetCurrentFIFOPacket();
+    } catch (e) {
+      fails++;
+    }
     if (!buf) continue;
-    imu.dmpGetMotionData(buf);
+   
+    try {
+      imu.dmpGetMotionData(buf);
+    } catch(e) {
+      fails++;
+    }
     cnt++;
   }
+  console.log('cnt', cnt, 'fails', fails);
   let stop = Date.now();
-  console.log('Avg package access time: ', (stop - start) / cnt, 'ms');
+  console.log('Avg package access time: ', (stop - start) / cnt, 'ms', 'packets read:', cnt);
   
   console.log();
   console.log('Sensor Access Test - no DMP');
@@ -110,21 +120,25 @@ function main() {
 
   imu.setDMPEnabled(true);
   while(true) { // eslint-disable-line no-constant-condition
-    const buf = imu.dmpGetCurrentFIFOPacket();
+    let buf: Buffer | undefined 
+    try {
+      buf = imu.dmpGetCurrentFIFOPacket();
+    } catch(e) {
+      // do nothing
+    }
     if (!buf) continue;
-    const rpy = imu.dmpGetYawPitchRoll(imu.dmpGetQuaternion(buf), imu.dmpGetGravity(buf));
+    const quaternion = imu.dmpGetQuaternion(buf);
+    const gravity = imu.dmpGetGravity(buf);
+    console.log('q:', quaternion, 'G:', gravity);
+    const rpy = imu.dmpGetYawPitchRoll(quaternion, gravity);
     console.log(
-      'roll:', rad2degree(rpy.roll, 5), 
-      ' pitch:', rad2degree(rpy.pitch, 5), 
-      ' yaw:', rad2degree(rpy.yaw, 5) );
+      'roll:', Utils.radToDeg(rpy.roll).toFixed(5), 
+      ' pitch:', Utils.radToDeg(rpy.pitch).toFixed(5), 
+      ' yaw:', Utils.radToDeg(rpy.yaw).toFixed(5));
+    Utils.usleep(1);
   }
 
   console.log('Complete');
-}
-
-function rad2degree(rads: number, fixed = 0) {
-  const deg = rads * 180 / Math.PI;
-  return fixed > 0 ? deg.toFixed(fixed) : deg;
 }
 
 main();

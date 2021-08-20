@@ -1,9 +1,12 @@
 /* eslint-disable no-param-reassign */
 
 import printf = require('printf');
+import { Euler, Quaternion, Vector3 } from 'three-math-ts';
 import {I2CHelper} from './i2c-helper';
-import { RpioI2CHelper } from './rpio-i2c-helper';
+import { RpioI2CHelper } from './i2c/rpio-i2c-helper';
 import { Utils } from './utils';
+
+export { Euler, Quaternion, Vector3 } from 'three-math-ts';
 
 export type I2cOptions = {
   i2cAddress?: number;
@@ -18,57 +21,22 @@ const DEFAULT_I2OPTIONS: I2cOptions = {
   baudRate: DEFAULT_I2C_BAUDRATE
 };
 
-export type Accel = {
-  acc_x: number;
-  acc_y: number;
-  acc_z: number;
+export interface Data3D {
+  x: number;
+  y: number;
+  z: number;
 }
 
-export type Gyro = {
-  gyro_x: number;
-  gyro_y: number;
-  gyro_z: number;
+export interface MotionData {
+  accel: Data3D;
+  gyro: Data3D;
 }
 
-export type MotionData = {
-  accel: Accel;
-  gyro: Gyro;
-}
-
-export type Vector3 = {
-  x: number,
-  y: number,
-  z: number
-}
-
-export type Euler = {
-  psi: number,
-  theta: number,
-  phi: number
-}
-
-export type Quaternion = {
-  w: number,
-  x: number,
-  y: number,
-  z: number
-}
-
-export type RPY = {
+export interface RPY {
   roll: number,
   pitch: number,
   yaw: number
 }
-
-// export type SensorOffsets = {
-//   acc_x_offset?: number;
-//   acc_y_offset?: number;
-//   acc_z_offset?: number;
-//   gyro_x_offset?: number;
-//   gyro_y_offset?: number;
-//   gyro_z_offset?: number;
-// }
-
 
 // MPU6050 Registers
 export enum Register {
@@ -159,6 +127,15 @@ export enum GyroFsRange {
   FS_2000                   = 0x03
 }
 
+export enum FsyncIntLevel {
+  ACTIVE_HIGH                      = 0x00,
+  ACTIVE_LOW                       = 0x01
+}
+
+const DEFAULT_ACCEL_CALIBRATION_LOOPS = 6;
+const DEFAULT_GYRO_CALIBRATION_LOOPS = 6;
+
+
 /**
  * A MPU6050 driver class based on the [I2Cdevlib library](https://www.i2cdevlib.com/devices/mpu6050), 
  * providing fused orientation (quaternion), acceleration and rotational data 
@@ -173,11 +150,16 @@ export class MPU6050 {
   private i2cHelper: I2CHelper;
   private dmpPacketSize = 0;
 
+  static getI2CHelper(baud: number): I2CHelper {
+    // return new I2CBusI2CHelper(baud);
+    return new RpioI2CHelper(baud);
+  }
+
   constructor(i2cOptions = DEFAULT_I2OPTIONS) {
     const options : I2cOptions = {...DEFAULT_I2OPTIONS, ...i2cOptions} ;
     this.i2cAddress = options.i2cAddress!;
     this.i2cBaudRate = options.baudRate!
-    this.i2cHelper = new RpioI2CHelper(this.i2cBaudRate);
+    this.i2cHelper = MPU6050.getI2CHelper(this.i2cBaudRate);
   }
 
   /**
@@ -197,9 +179,22 @@ export class MPU6050 {
     Utils.msleep(100)
   }
 
+  /**
+   * Terminate communications with the MPU6050 chip.
+   * Includes disabling DMP, FSync interrupt and DataReady interrupt.
+   */
   shutdown(): void {
+    this.setDMPEnabled(false);
+    this.setFSyncInterruptEnabled(false);
+    this.setInterruptDataReadyEnabled(false);
+
+    this.i2cHelper.shutdown();
   }
 
+  /**
+   * Get the MPU6050 I2C slave address.
+   * @returns The I2C slave address.
+   */
   getDeviceI2CAddr(): number {
     return this.i2cAddress;
   }
@@ -361,7 +356,7 @@ export class MPU6050 {
    * @see MPU6050.GCONFIG_FS_SEL_BIT
    * @see MPU6050.GCONFIG_FS_SEL_LENGTH
    */
-  getFullScaleGyroRange(): number {
+  getFullScaleGyroRange(): GyroFsRange {
     return this.i2cHelper.readBits(this.getDeviceI2CAddr(), Register.RA_GYRO_CONFIG, GCONFIG_FS_SEL_BIT, GCONFIG_FS_SEL_LENGTH);
   }
 
@@ -374,7 +369,7 @@ export class MPU6050 {
    * @see MPU6050.GCONFIG_FS_SEL_BIT
    * @see MPU6050.GCONFIG_FS_SEL_LENGTH
    */
-  setFullScaleGyroRange(range: number): void {
+  setFullScaleGyroRange(range: GyroFsRange): void {
     this.i2cHelper.writeBits(this.getDeviceI2CAddr(), Register.RA_GYRO_CONFIG, GCONFIG_FS_SEL_BIT, GCONFIG_FS_SEL_LENGTH, range);
   }
 
@@ -419,7 +414,6 @@ export class MPU6050 {
    */
   getAccelFIFOEnabled(): boolean {
     return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_FIFO_EN, ACCEL_FIFO_EN_BIT) === 1;
-  
   }
 
   /**
@@ -517,15 +511,47 @@ export class MPU6050 {
     this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_INT_PIN_CFG, INTCFG_INT_LEVEL_BIT, mode ? 1 : 0);
   }
 
+  /**
+   * Get the latch mode of the interrupt pin.
+   * @returns true if interrupt pin remains active until cleared; otherwise interrupt pin emits 50 us pulse
+   */
+  getInterruptLatchEnabled(): boolean {
+    return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_INT_PIN_CFG, INTCFG_LATCH_INT_EN_BIT) === 1;
+  }
+
+  /**
+   * Enable or disable latch mode on the interrupt pin
+   * @param enabled - when true if interrupt pin remains active until cleared; otherwise interrupt pin emits 50 us pulse 
+   */
+  setInterruptLatchEnabled(enabled: boolean): void {
+    this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_INT_PIN_CFG, INTCFG_LATCH_INT_EN_BIT, enabled ? 1 : 0);
+  }
+
+  /**
+   * Get the interrupt pin clearing mode.
+   * @returns 1 if interrupt pin is cleared on any data read; 0 if interrput pin is clearer only by reading the interrupt status register
+   */
+  getInterruptClearMode(): 0|1 {
+    return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_INT_PIN_CFG, INTCFG_INT_RD_CLEAR_BIT) ? 1 : 0;
+  }
+
+  /**
+   * Specify if interrupt pin is cleared
+   * @param mode - 1 clears interrupt pin on any data read; 0 clears interrupt pin only by reading the interrupt status register
+   */
+  setInterruptClearMode(mode: 0|1): void {
+    this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_INT_PIN_CFG, INTCFG_INT_RD_CLEAR_BIT, mode);
+  }
+
   /** 
-   * Get full interrupt enabled status.
+   * Get interrupt register byte.
    * Full register byte for all interrupts, for quick reading. Each bit will be
    * set 0 for disabled, 1 for enabled.
-   * @returns Current interrupt enabled status
+   * @returns Current interrupt register byte
    * @see MPU6050.RA_INT_ENABLE
    * @see MPU6050.INTERRUPT_FF_BIT
    */
-  getIntEnabled(): number {
+  getInterruptRegister(): number {
     return this.i2cHelper.readByte(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE);
   }
 
@@ -533,13 +559,13 @@ export class MPU6050 {
    * Set full interrupt enabled status.
    * Full register byte for all interrupts, for quick reading. Each bit should be
    * set 0 for disabled, 1 for enabled.
-   * @param enabled New interrupt enabled status
+   * @param byte - New interrupts byte
    * @see getIntFreefallEnabled()
    * @see MPU6050.RA_INT_ENABLE
    * @see MPU6050.INTERRUPT_FF_BIT
    */
-  setIntEnabled(enabled: number): void {
-    this.i2cHelper.writeByte(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, enabled);
+  setInterruptRegister(byte: number): void {
+    this.i2cHelper.writeByte(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, byte);
   }
 
   /** 
@@ -551,7 +577,7 @@ export class MPU6050 {
    */
   getFSyncInterruptEnabled(): boolean {
     return this.i2cHelper.readBit(this.getDeviceI2CAddr(), 
-      Register.RA_INT_PIN_CFG, INTCFG_FSYNC_INT_EN_BIT) !== 0 ? true : false;
+      Register.RA_INT_PIN_CFG, INTCFG_FSYNC_INT_EN_BIT) !== 0;
   }
 
   /**
@@ -567,28 +593,6 @@ export class MPU6050 {
   }
 
   /**
-   * Get FIFO Buffer Overflow interrupt enabled status.
-   * Will be set 0 for disabled, 1 for enabled.
-   * @returns Current interrupt enabled status
-   * @see MPU6050.RA_INT_ENABLE
-   * @see MPU6050.INTERRUPT_FIFO_OFLOW_BIT
-   */
-  getIntFIFOBufferOverflowEnabled(): boolean {
-    return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, INTERRUPT_FIFO_OFLOW_BIT) === 1;
-  }
-
-  /**
-   * Set FIFO Buffer Overflow interrupt enabled status.
-   * @param enabled New interrupt enabled status
-   * @see getIntFIFOBufferOverflowEnabled()
-   * @see MPU6050.RA_INT_ENABLE
-   * @see MPU6050.INTERRUPT_FIFO_OFLOW_BIT
-   */
-  setIntFIFOBufferOverflowEnabled(enabled: boolean): void {
-    this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, INTERRUPT_FIFO_OFLOW_BIT, enabled ? 1 : 0);
-  }
-
-  /**
    * Get Data Ready interrupt enabled setting.
    * This event occurs each time a write operation to all of the sensor registers
    * has been completed. Will be set 0 for disabled, 1 for enabled.
@@ -596,7 +600,7 @@ export class MPU6050 {
    * @see MPU6050.RA_INT_ENABLE
    * @see MPU6050.INTERRUPT_DATA_RDY_BIT
    */
-  getIntDataReadyEnabled(): boolean {
+   getInterruptDataReadyEnabled(): boolean {
     return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, INTERRUPT_DATA_RDY_BIT) === 1;
   }
 
@@ -607,8 +611,55 @@ export class MPU6050 {
   * @see MPU6050.RA_INT_CFG
   * @see MPU6050.INTERRUPT_DATA_RDY_BIT
   */
-  setIntDataReadyEnabled(enabled: boolean): void {
+  setInterruptDataReadyEnabled(enabled: boolean): void {
     this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, INTERRUPT_DATA_RDY_BIT, enabled ? 1 : 0);
+  }
+
+  
+  /**
+   * Get Data Ready interrupt enabled setting.
+   * This event occurs each time a write operation to all of the sensor registers
+   * has been completed. Will be set 0 for disabled, 1 for enabled.
+   * @returns Current interrupt enabled status
+   * @see MPU6050.RA_INT_ENABLE
+   * @see MPU6050.INTERRUPT_DATA_RDY_BIT
+   */
+   getInterruptDMPEnabled(): boolean {
+    return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, INTERRUPT_DMP_INT_BIT) === 1;
+  }
+
+  /**
+   * Set DMP interrupt enabled status.
+  * @param enabled New interrupt enabled status
+  * @see getIntDataReadyEnabled()
+  * @see MPU6050.RA_INT_CFG
+  * @see MPU6050.INTERRUPT_DATA_RDY_BIT
+  */
+  setInterruptDMPEnabled(enabled: boolean): void {
+    this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, INTERRUPT_DMP_INT_BIT, enabled ? 1 : 0);
+  }
+
+
+  /**
+   * Get FIFO Buffer Overflow interrupt enabled status.
+   * Will be set 0 for disabled, 1 for enabled.
+   * @returns Current interrupt enabled status
+   * @see MPU6050.RA_INT_ENABLE
+   * @see MPU6050.INTERRUPT_FIFO_OFLOW_BIT
+   */
+  getInterruptFIFOBufferOverflowEnabled(): boolean {
+    return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, INTERRUPT_FIFO_OFLOW_BIT) === 1;
+  }
+
+  /**
+   * Set FIFO Buffer Overflow interrupt enabled status.
+   * @param enabled New interrupt enabled status
+   * @see getIntFIFOBufferOverflowEnabled()
+   * @see MPU6050.RA_INT_ENABLE
+   * @see MPU6050.INTERRUPT_FIFO_OFLOW_BIT
+   */
+  setInterruptFIFOBufferOverflowEnabled(enabled: boolean): void {
+    this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_INT_ENABLE, INTERRUPT_FIFO_OFLOW_BIT, enabled ? 1 : 0);
   }
 
   /**
@@ -619,7 +670,7 @@ export class MPU6050 {
    * @returns Current interrupt status
    * @see MPU6050.RA_INT_STATUS
    */
-  getIntStatus(): number {
+  getInterruptStatus(): number {
     return this.i2cHelper.readByte(this.getDeviceI2CAddr(), Register.RA_INT_STATUS);
   }
 
@@ -631,7 +682,7 @@ export class MPU6050 {
    * @see MPU6050.RA_INT_STATUS
    * @see MPU6050.INTERRUPT_DATA_RDY_BIT
    */
-  getIntDataReadyStatus(): boolean {
+  getInterruptDataReadyStatus(): boolean {
     return this.i2cHelper.readBit(this.getDeviceI2CAddr(), Register.RA_INT_STATUS, INTERRUPT_DATA_RDY_BIT) === 1;
   }
 
@@ -684,10 +735,14 @@ export class MPU6050 {
   }
 
   /**
-   * Get byte from FIFO buffer.
-   * This register is used to read and write data from the FIFO buffer. Data is
-   * written to the FIFO in order of register number (from lowest to highest). If
-   * all the FIFO enable flags (see below) are enabled and all External Sensor
+   * Returns bytes read from the FIFO buffer in a volitale buffer.
+   * 
+   * Bytes read from the FIFO buffer are returned in a volitale buffer, i.e.,
+   * the buffer is overwritten upon each FIFO read. Therefore you should copy
+   * any bytes for which you need to reference beyond the current FIFO read.
+   * 
+   * Data is written to the FIFO in order of register number (from lowest to highest).
+   * If all the FIFO enable flags (see below) are enabled and all External Sensor
    * Data registers (Registers 73 to 96) are associated with a Slave device, the
    * contents of registers 59 through 96 will be written in order at the Sample
    * Rate.
@@ -707,12 +762,8 @@ export class MPU6050 {
    * should check FIFO_COUNT to ensure that the FIFO buffer is not read when
    * empty.
    *
-   * @returns Byte from FIFO buffer
+   * @returns volitale bytes from the FIFO buffer
    */
-  getFIFOByte(): number {
-    return this.i2cHelper.readByte(this.getDeviceI2CAddr(), Register.RA_FIFO_R_W);
-  }
-
   getFIFOBytes(length: number): Buffer {
     if (length < 1) return Buffer.alloc(0);
 
@@ -720,25 +771,82 @@ export class MPU6050 {
   }
 
   /**
+   * Read the 1st byte from the FIFO buffer.
+   * @returns A byte
+   */
+  getFIFOByte(): number {
+    return this.i2cHelper.readByte(this.getDeviceI2CAddr(), Register.RA_FIFO_R_W);
+  }
+
+  /**
+   * 
+   * @returns The dlpf configuration setting
+   */
+  getDLPF(): number {
+    return this.i2cHelper.readBits(
+      this.getDeviceI2CAddr(),
+      Register.RA_CONFIG,
+      CFG_DLPF_CFG_BIT,
+      CFG_DLPF_CFG_LENGTH);
+  }
+
+  setDLPF(filterConfig: number): void {
+    this.i2cHelper.writeBits(
+      this.getDeviceI2CAddr(),
+      Register.RA_CONFIG,
+      CFG_DLPF_CFG_BIT,
+      CFG_DLPF_CFG_LENGTH,
+      Utils.clamp(filterConfig, 0, 7));
+  }
+
+  /**
    * Get raw 6-axis motion sensor readings (accel/gyro).
    * Retrieves all currently available motion sensor values.
-   * @see getAcceleration()
-   * @see getRotation()
+   * @see getAccel()
+   * @see getGyro()
    * @see MPU6050.RA_ACCEL_XOUT_H
    */
   getMotionData(): MotionData {
     const buf = this.i2cHelper.readBytes(this.getDeviceI2CAddr(), Register.RA_ACCEL_XOUT_H, 14);
-    const accel: Accel = {
-      acc_x: buf.readInt16BE(0),
-      acc_y: buf.readInt16BE(2),
-      acc_z: buf.readInt16BE(4),
+    const accel: Data3D = {
+      x: buf.readInt16BE(0),
+      y: buf.readInt16BE(2),
+      z: buf.readInt16BE(4),
     };
-    const gyro: Gyro = {
-      gyro_x: buf.readInt16BE(8),
-      gyro_y: buf.readInt16BE(10),
-      gyro_z: buf.readInt16BE(12)
+    const gyro: Data3D = {
+      x: buf.readInt16BE(8),
+      y: buf.readInt16BE(10),
+      z: buf.readInt16BE(12)
     }
     return {accel, gyro};
+  }
+
+  /**
+   * Get raw 3-axis accelerometer readings.
+   * @returns current accelerometer data
+   * @see MPU6050.RA_ACCEL_XOUT_H
+   */
+  getAccel(): Data3D {
+    return this.getMotionData().accel;
+  }
+
+  /**
+   * Get raw 3-axis gyroscope readings.
+   * @returns current gyroscop data
+   * @see MPU6050.RA_GYRO_XOUT_H
+   */
+   getGyro(): Data3D {
+    return this.getMotionData().gyro;
+  }
+
+  /**
+   * Get the device temperature in Celcius.
+   * @returns Temperature in Celcius
+   */
+  getTemperature(): number {
+    const buf = this.i2cHelper.readBytes(this.getDeviceI2CAddr(), Register.RA_TEMP_OUT_H, 2);
+    const devTemp = buf.readInt16BE(0);
+    return devTemp / 340 + 36.53;
   }
 
   setSensorOffsets(xAccelOffset: number, yAccelOffset: number, zAccelOffset: number, 
@@ -879,37 +987,60 @@ export class MPU6050 {
     this.i2cHelper.writeBit(this.getDeviceI2CAddr(), Register.RA_USER_CTRL, USERCTRL_DMP_RESET_BIT, 1);
   }
 
-  // this is the most basic initialization I can create. with the intent that we access the register bytes as few times as needed to get the job done.
-  // for detailed descriptins of all registers and there purpose google "MPU-6000/MPU-6050 Register Map and Descriptions"
+  /**
+   * Initialize digital motion processing (DMP).
+   * 
+   * Upon completion the MPU6050 state is:
+   *   Full reset, All interrupts cleared.
+   *   Clock source = X-Gyro
+   *   Accelerometer Fullscale Range = 2g
+   *   Gyrometer Fullscale Range = +-2000 deg/sec
+   *   DMP Raw Data Interrupt enabled
+   *   Rate divider = 4
+   *   Load DMP program image
+   *   FIFO enabled & reset
+   *   Set clear interrupt on any read
+   *   DMP is disabled; To enable DMP call setDMPEnabled(true)
+   * 
+   * For detailed descriptins of all registers and there purpose google "MPU-6000/MPU-6050 Register Map and Descriptions"
+   */
   dmpInitialize(): void { // Lets get it over with fast Write everything once and set it up necely
+    
     // Reset procedure per instructions in the "MPU-6000/MPU-6050 Register Map and Descriptions" page 41
-    this.i2cHelper.writeBit(this.getDeviceI2CAddr(), 0x6B, 7, 1); // PWR_MGMT_1: reset with 100ms delay
+    this.reset(); // PWR_MGMT_1: reset with 100ms delay
     Utils.msleep(100);
-    this.i2cHelper.writeBits(this.getDeviceI2CAddr(), 0x6A, 2, 3, 0b111); // full SIGNAL_PATH_RESET: with another 100ms delay
-    Utils.msleep(100);
-    this.i2cHelper.writeByte(this.getDeviceI2CAddr(), 0x6B, 0x01); // 1000 0001 PWR_MGMT_1:Clock Source Select PLL_X_gyro
-    this.i2cHelper.writeByte(this.getDeviceI2CAddr(), 0x38, 0x00); // 0000 0000 INT_ENABLE: no Interrupt
-    this.i2cHelper.writeByte(this.getDeviceI2CAddr(), 0x23, 0x00); // 0000 0000 MPU FIFO_EN: (all off) Using DMP's FIFO instead
-    this.i2cHelper.writeByte(this.getDeviceI2CAddr(), 0x1C, 0x00); // 0000 0000 ACCEL_CONFIG: 0 =  Accel Full Scale Select: 2g
-    this.i2cHelper.writeByte(this.getDeviceI2CAddr(), 0x37, 0x80); // 1001 0000 INT_PIN_CFG: ACTL The logic level for int pin is active low. and interrupt status bits are cleared on any read
-    this.i2cHelper.writeByte(this.getDeviceI2CAddr(), 0x6B, 0x01); // 0000 0001 PWR_MGMT_1: Clock Source Select PLL_X_gyro
-    this.i2cHelper.writeByte(this.getDeviceI2CAddr(), 0x19, 0x04); // 0000 0100 SMPLRT_DIV: Divides the internal sample rate 400Hz ( Sample Rate = Gyroscope Output Rate / (1 + SMPLRT_DIV))
-    this.i2cHelper.writeByte(this.getDeviceI2CAddr(), 0x1A, 0x01); // 0000 0001 CONFIG: Digital Low Pass Filter (DLPF) Configuration 188HZ  //Im betting this will be the beat
-   
-    this.writeProgMemoryBlock(dmpMemory); // Loads the DMP image into the MPU6050 Memory // Should Never Fail
-   
-    this.i2cHelper.writeWord(this.getDeviceI2CAddr(), 0x70, 0x0400); // DMP Program Start Address
-    this.i2cHelper.writeByte(this.getDeviceI2CAddr(), 0x1B, 0x18); // 0001 1000 GYRO_CONFIG: 3 = +2000 Deg/sec
-    this.i2cHelper.writeByte(this.getDeviceI2CAddr(), 0x6A, 0xC0); // 1100 1100 USER_CTRL: Enable Fifo and Reset Fifo
-    this.i2cHelper.writeByte(this.getDeviceI2CAddr(), 0x38, 0x02); // 0000 0010 INT_ENABLE: RAW_DMP_INT_EN on
-    this.i2cHelper.writeBit(this.getDeviceI2CAddr(), 0x6A, 2, 1);      // Reset FIFO one last time just for kicks. (MPUi2cWrite reads 0x6A first and only alters 1 bit and then saves the byte)
 
+    this.i2cHelper.writeBits(this.getDeviceI2CAddr(), Register.RA_USER_CTRL, 2, 3, 0b111); // full SIGNAL_PATH_RESET: with another 100ms delay
+    Utils.msleep(100);
+    
+    this.setSleepEnabled(false);
+    this.setClockSource(ClockSource.PLL_XGYRO);
+    this.setInterruptRegister(0x00); // 0000 0000 INT_ENABLE: no Interrupt
+    this.i2cHelper.writeBytes(this.getDeviceI2CAddr(), 0x23, 1,  Buffer.alloc(1, 0x00)); // 0000 0000 MPU FIFO_EN: (all off) Using DMP's FIFO instead
+    
+    this.setFullScaleAccelRange(AccelFsRange.FS_2); // 0000 0000 ACCEL_CONFIG: 0 =  Accel Full Scale Select: 2g
+    this.setInterruptClearMode(1); // interrupt status bits are cleared on any read
+   
+    this.setRate(0x04); // 0000 0100 SMPLRT_DIV: Divides the internal sample rate 400Hz ( Sample Rate = Gyroscope Output Rate / (1 + SMPLRT_DIV))
+    this.setDLPF(0x01); // 0000 0001 CONFIG: Digital Low Pass Filter (DLPF) Configuration 188HZ  //Im betting this will be the best
+
+    // load dmp image
+    this.writeProgMemoryBlock(dmpMemory); // Loads the DMP image into the MPU6050 Memory // Should Never Fail
+    this.i2cHelper.writeWord(this.getDeviceI2CAddr(), 0x70, 0x0400); // DMP Program Start Address
+    this.setFullScaleGyroRange(GyroFsRange.FS_2000);
+    
+    this.setFIFOEnabled(true);
+    this.resetFIFO();
+
+    this.setInterruptDMPEnabled(true); // 0000 0010 INT_ENABLE: RAW_DMP_INT_EN on
+    this.resetFIFO();  // Reset FIFO one last time just for kicks. (MPUi2cWrite reads 0x6A first and only alters 1 bit and then saves the byte)
     this.setDMPEnabled(false); // disable DMP for compatibility with the MPU6050 library
-  /*
-      dmpPacketSize += 16;//DMP_FEATURE_6X_LP_QUAT
-      dmpPacketSize += 6;//DMP_FEATURE_SEND_RAW_ACCEL
-      dmpPacketSize += 6;//DMP_FEATURE_SEND_RAW_GYRO
-  */
+  
+    /*
+        dmpPacketSize += 16;//DMP_FEATURE_6X_LP_QUAT
+        dmpPacketSize += 6;//DMP_FEATURE_SEND_RAW_ACCEL
+        dmpPacketSize += 6;//DMP_FEATURE_SEND_RAW_GYRO
+    */
     this.dmpPacketSize = 28;
   }
 
@@ -991,10 +1122,18 @@ export class MPU6050 {
     }
   }
 
+  /**
+   * Determine if a DMP packet of data is available in the FIFO buffer.
+   * @returns True when a package is ready to be read; false otherwise.
+   */
   dmpPacketAvailable(): boolean {
     return this.getFIFOCount() >= this.dmpGetFIFOPacketSize();
   }
 
+  /**
+   * Get the size of a DMP FIFO packet
+   * @returns The packet size in bytes.
+   */
   dmpGetFIFOPacketSize(): number {
     return this.dmpPacketSize;
   }
@@ -1052,32 +1191,39 @@ export class MPU6050 {
     return this.getFIFOBytes(length); // Get 1 packet
   }
 
-  dmpGetAccel(packet: Buffer): Accel {
-    const accel = {
-      acc_x: packet.readInt16BE(16),
-      acc_y: packet.readInt16BE(18),
-      acc_z: packet.readInt16BE(20),
+  /**
+   * Get the 3-axis accelerometer reading from the DMP packet.
+   * @param packet - DMP packet of bytes
+   * @returns The accelerometer reading
+   */
+  dmpGetAccel(packet: Buffer): Data3D {
+    return {
+      x: packet.readInt16BE(16),
+      y: packet.readInt16BE(18),
+      z: packet.readInt16BE(20),
     };
-    return accel;
   }
 
-  // uint8_t MPU6050::dmpGet6AxisQuaternion(long *data, const uint8_t* packet);
-  // uint8_t MPU6050::dmpGetRelativeQuaternion(long *data, const uint8_t* packet);
-  dmpGetGyro(packet: Buffer): Gyro {
-    const gyro: Gyro = {
-      gyro_x: packet.readInt16BE(22),
-      gyro_y: packet.readInt16BE(24),
-      gyro_z: packet.readInt16BE(26)
-    }
-    return gyro;
+  /**
+   * Get the 3-axis gyroscope reading from the DMP packet.
+   * @param packet - DMP packet of bytes
+   * @returns The gyroscope reading
+   */
+  dmpGetGyro(packet: Buffer): Data3D {
+    return {
+      x: packet.readInt16BE(22),
+      y: packet.readInt16BE(24),
+      z: packet.readInt16BE(26)
+    };
   }
 
   /** 
-   * Get raw 6-axis motion sensor readings (accel/gyro).
+   * Get 6-axis motion sensor readings (accel/gyro).
    * Retrieves all currently available motion sensor values.
-   * @see getAcceleration()
-   * @see getRotation()
-   * @see MPU6050.RA_ACCEL_XOUT_H
+   * @param packet - DMP packet to process.
+   * @returns MotionData from the DMP packet
+   * @see dmpGetAccel()
+   * @see dmpGetGyro()
    */
   dmpGetMotionData(packet: Buffer): MotionData {
     return {
@@ -1086,33 +1232,55 @@ export class MPU6050 {
     };
   }
 
+  /**
+   * Get the DMP computed quaternion
+   * @param packet - DMP packet
+   * @returns The quaternion.
+   */
   dmpGetQuaternion(packet: Buffer): Quaternion {
-    const quaternion = {
-        w: packet.readInt32BE(0),
-        x: packet.readInt32BE(4),
-        y: packet.readInt32BE(8),
-        z: packet.readInt32BE(12)
-      };
-      return quaternion;
+    return new Quaternion(
+        packet.readInt32BE(4),  // x
+        packet.readInt32BE(8),  // y
+        packet.readInt32BE(12), // z
+        packet.readInt32BE(0)   // w
+    );
   }
 
+  /**
+   * Get the gravity vector in 
+   * @param packet 
+   * @returns 
+   */
   dmpGetGravity(packet: Buffer): Vector3 {
     /* +1g corresponds to +8192, sensitivity is 2g. */
     const qI = this.dmpGetQuaternion(packet);
-    const x = (Math.trunc(qI.x) * qI.z - Math.trunc(qI.w) * qI.y) / 16384;
-    const y = (Math.trunc(qI.w) * qI.x + Math.trunc(qI.y) * qI.z) / 16384;
-    const z = (Math.trunc(qI.w) * qI.w - Math.trunc(qI.x) * qI.x
-	       - Math.trunc(qI.y) * qI.y + Math.trunc(qI.z) * qI.z) / (2 * 16384);
-    return {x, y, z};
+    return new Vector3(
+      (Math.trunc(qI.x) * qI.z - Math.trunc(qI.w) * qI.y) / 16384, // x
+      (Math.trunc(qI.w) * qI.x + Math.trunc(qI.y) * qI.z) / 16384, // y
+      (Math.trunc(qI.w) * qI.w - Math.trunc(qI.x) * qI.x           // z
+	       - Math.trunc(qI.y) * qI.y + Math.trunc(qI.z) * qI.z) / (2 * 16384)
+    );
   }
 
+  /**
+   * Compute the Euler angle from a DMP quaternion.
+   * @param q - quaternion
+   * @returns The Euler angle.
+   */
   dmpGetEuler(q: Quaternion): Euler {
-    const psi = Math.atan2(2 * q.x * q.y - 2 * q.w * q.z, 2 * q.w * q.w + 2 * q.x * q.x - 1);   // psi
-    const theta = -Math.asin(2 * q.x * q.z + 2 * q.w * q.y);                              // theta
-    const phi = Math.atan2(2 * q.y * q.z - 2 * q.w * q.x, 2 * q.w * q.w + 2 * q.z * q.z - 1);   // phi
-    return {psi, theta, phi};
+    return new Euler(
+      Math.atan2(2 * q.x * q.y - 2 * q.w * q.z, 2 * q.w * q.w + 2 * q.x * q.x - 1)   // psi or x
+      -Math.asin(2 * q.x * q.z + 2 * q.w * q.y),                                     // theta or y
+      Math.atan2(2 * q.y * q.z - 2 * q.w * q.x, 2 * q.w * q.w + 2 * q.z * q.z - 1)   // phi or z
+    );
   }
 
+  /**
+   * Compute the yaw, roll and pitch from the DMP quaternion and gravity vector.
+   * @param q - The quaternion
+   * @param gravity - The gravity vector
+   * @returns The roll, yaw and pitch
+   */
   dmpGetYawPitchRoll(q: Quaternion, gravity: Vector3): RPY {
     // yaw: (about Z axis)
     const yaw = Math.atan2(2 * q.x * q.y - 2 * q.w * q.z,  2 * q.w * q.w + 2 * q.x * q.x - 1);
@@ -1124,6 +1292,7 @@ export class MPU6050 {
     const roll = Math.atan2(gravity.y , gravity.z);
 
     if (gravity.z < 0) {
+      // reverse pitch angle when upside down
       if(pitch > 0) {
         pitch = Math.PI - pitch; 
       } else { 
@@ -1138,43 +1307,58 @@ export class MPU6050 {
     }
   }
 
-  dmpGetLinearAccel(accel: Accel, gravity: Vector3): Vector3 {
+  /**
+   * Compute the 3-axis linear acceleration vector from the dmp acceleration and gravity vector.
+   * @param accel - 3-axis acceleration
+   * @param gravity - gravity vector
+   * @returns The linear acceleration vector
+   */
+  dmpGetLinearAccel(accel: Data3D, gravity: Vector3): Vector3 {
     // get rid of the gravity component (+1g = +8192 in standard DMP FIFO packet, sensitivity is 2g)
-    return {
-      x: accel.acc_x - gravity.x * 8192,
-      y: accel.acc_y - gravity.y * 8192,
-      z: accel.acc_z - gravity.z * 8192
-    };
+    return new Vector3(accel.x, accel.y, accel.z).sub(gravity.multiplyScalar(8192));
   }
 
-  // Calibration Routines  
-  /**
-    @brief Fully calibrate Gyro from ZERO in about 6-7 Loops 600-700 readings
-  */
-  calibrateGyro(loops: number): void {
+  // Calibration Routines
+
+   /**
+   * Calibrate the gyroscope, (i.e., compute X, Y and Z offsets),
+   * in 6-7 iterations (600-700 readings). The X, Y and Z offsets are printed to stdout
+   * for future use with the setXGyroOffset(), setYGyroOffset() and setZGyroOffset()
+   * respectively.
+   * 
+   * @param [enableOutput=true] - enables output of info msgs
+   * @param [loops=6] - number of calibration iterations to run
+   */
+  calibrateGyro(enableOutput = true, loops = DEFAULT_GYRO_CALIBRATION_LOOPS): void {
     let kP = 0.3;
     let kI = 90;
     const x = (100 - map(loops, 1, 5, 20, 0)) * .01;
     kP *= x;
     kI *= x;
     
-    this.PID( 0x43,  kP, kI,  loops);
+    this.PID( 0x43,  kP, kI,  loops, enableOutput);
   }
 
   /**
-   * Fully calibrate Accel from ZERO in about 6-7 Loops 600-700 readings
+   * Calibrate the accelerometer, (i.e., compute X, Y and Z offsets),
+   * in 6-7 iterations (600-700 readings). The X, Y and Z offsets are printed to stdout
+   * for future use with the setXAccelOffset(), setYAccelOffset() and setZAccelOffset()
+   * respectively.
+   * 
+   * @param [enableOutput=true] - enables output of info msgs
+   * @param [loops=6] - number of calibration iterations to run
    */
-  calibrateAccel(loops: number): void {
+  calibrateAccel(enableOutput = true, loops = DEFAULT_ACCEL_CALIBRATION_LOOPS): void {
     let kP = 0.3;
     let kI = 20;
     const x = (100 - map(loops, 1, 5, 20, 0)) * .01;
     kP *= x;
     kI *= x;
-    this.PID( 0x3B, kP, kI,  loops);
+    this.PID( 0x3B, kP, kI,  loops, enableOutput);
   }
 
   // uint8_t ReadAddress, float kP,float kI, uint8_t Loops
-  protected PID(ReadAddress: number, kP: number, kI: number, Loops: number): void {
+  protected PID(ReadAddress: number, kP: number, kI: number, Loops: number, enableOutput = true): void {
     // eslint-disable-next-line no-nested-ternary
     const SaveAddress = ReadAddress === 0x3B ? (this.getDeviceID() < 0x38  ? 0x06 : 0x77) : 0x13;
     let Data: number; // 
@@ -1186,7 +1370,7 @@ export class MPU6050 {
     const ITerm = Float32Array.from([0,0,0]); // float
     let eSample; // int16_t
     let eSum ; // uint32_t  
-    process.stdout.write('>');
+    if (enableOutput) process.stdout.write('>');
     for (let i = 0; i < 3; i++) {
       Data = this.i2cHelper.readWord(this.getDeviceI2CAddr(), SaveAddress + (i * shift)); // reads 1 or more 16 bit integers (Word)
       Reading = Data;
@@ -1208,22 +1392,22 @@ export class MPU6050 {
           Error = -Reading;
           eSum += Math.abs(Reading);
           PTerm = kP * Error;
-          ITerm[i] += (Error * 0.001) * kI;				// Integral term 1000 Calculations a second = 0.001
-          if(SaveAddress !== 0x13){
-            Data = Math.round((PTerm + ITerm[i] ) / 8);		// Compute PID Output
-            Data = (Data & 0xFFFE) | BitZero[i];			// Insert Bit0 Saved at beginning
-          } else Data = Math.round((PTerm + ITerm[i] ) / 4);	// Compute PID Output
+          ITerm[i] += (Error * 0.001) * kI;  // Integral term 1000 Calculations a second = 0.001
+          if(SaveAddress !== 0x13) {
+            Data = Math.round((PTerm + ITerm[i] ) / 8);  // Compute PID Output
+            Data = (Data & 0xFFFE) | BitZero[i];  // Insert Bit0 Saved at beginning
+          } else Data = Math.round((PTerm + ITerm[i] ) / 4); // Compute PID Output
           this.i2cHelper.writeWord(this.getDeviceI2CAddr(), SaveAddress + (i * shift), Data);
         }
-        if((c === 99) && eSum > 1000){						// Error is still to great to continue 
+        if((c === 99) && eSum > 1000){  // Error is still too great to continue 
           c = 0;
           process.stdout.write('*');
         }
-        if((eSum * ((ReadAddress === 0x3B) ? 0.05 : 1)) < 5) eSample++;	// Successfully found offsets prepare to  advance
-        if((eSum < 100) && (c > 10) && (eSample >= 10)) break;		// Advance to next Loop
+        if((eSum * ((ReadAddress === 0x3B) ? 0.05 : 1)) < 5) eSample++;  // Successfully found offsets prepare to advance
+        if((eSum < 100) && (c > 10) && (eSample >= 10)) break;  // Advance to next Loop
         Utils.msleep(1);
       }
-      process.stdout.write('.');
+      if (enableOutput) process.stdout.write('.');
       kP *= .75;
       kI *= .75;
       for (let i = 0; i < 3; i++){
@@ -1236,9 +1420,12 @@ export class MPU6050 {
     }
     this.resetFIFO();
     this.resetDMP();
-    console.log();
+    if (enableOutput) console.log();
   }
 
+  /**
+   * 
+   */
   printActiveOffsets(): void {
     const AOffsetRegister = this.getDeviceID() < 0x38 ? Register.RA_XA_OFFS_H : 0x77;
     const Data = Int16Array.from([0,0,0,0,0,0]);;
@@ -1265,6 +1452,14 @@ export class MPU6050 {
     console.log(output);
   }
 
+  /**
+   * Read a byte stored in the specified register.
+   * @param register - The register to read
+   * @returns The byte stored in the register
+   */
+  getRegister(register: number): number {
+    return this.i2cHelper.readByte(this.getDeviceI2CAddr(), register);
+  }
 }
 
 function map(x: number, in_min: number, in_max: number, out_min: number, out_max: number): number {
@@ -1272,7 +1467,7 @@ function map(x: number, in_min: number, in_max: number, out_min: number, out_max
 }
 
 function createMotionData(): MotionData {
-  return { accel: {acc_x: 0, acc_y: 0, acc_z: 0}, gyro: {gyro_x: 0, gyro_y: 0, gyro_z: 0}};
+  return { accel: {x: 0, y: 0, z: 0}, gyro: {x: 0, y: 0, z: 0}};
 }
 
 // Internal Constants
@@ -1293,7 +1488,9 @@ const PWR1_TEMP_DIS_BIT              = 3;
 const PWR1_CLKSEL_BIT                = 2;
 const PWR1_CLKSEL_LENGTH             = 3;
   
-  
+const CFG_DLPF_CFG_BIT               = 2;
+const CFG_DLPF_CFG_LENGTH            = 3;
+
 const GCONFIG_FS_SEL_BIT             = 4
 const GCONFIG_FS_SEL_LENGTH          = 2
   
