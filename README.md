@@ -26,7 +26,7 @@ npm install @ros2jsguy/mpu6050-motion-data
 
 With your MPU6050 powered up and connected to a Raspiberry Pi or similar microcontroller (see circuit below), begin by importing this module's key TypeScript constructs.
 
-```ts
+```javascript
 import {
   Data3D, MotionData, MPU6050, Utils 
 } from '@ros2jsguy/mpu6050-motion-data';
@@ -35,7 +35,7 @@ import {
 Next create an instance of the `MPU6050` class to communicate with your 
 MPU6050 chip via I<sup>2</sup>C.
 
-```ts
+```javascript
 const imu = new MPU6050();
 imu.initialize();
 
@@ -45,7 +45,7 @@ console.log('Device connected:', imu.testConnection());
 
 At this point motion data should be available from the chip. Here's how we access it:
 
-```ts
+```javascript
 const motionData = imu.getMotionData();
 // {
 //   accel: {
@@ -112,7 +112,7 @@ MPU6050-Motion-Data provides the *calibrate* script and an api for calculating a
 To use the calibrate utility, open a terminal on your Raspberry Pi with current working directory (cwd) in your Nodejs project for which @ros2jsguy/mpu6050-motion-data has been added as a dependency. 
 
 Next run the following command:
-```javascript
+```shell
 sudo npx calibrate
 
 //           X Accel  Y Accel  Z Accel   X Gyro   Y Gyro   Z Gyro
@@ -121,14 +121,14 @@ sudo npx calibrate
 ```
 The utility outputs the accelerometer and gyroscope offsets for future use with the `mpu6050.setSensorOffsets()` method.
 
-```ts
+```javascript
 // example
 mpu6050.setSensorOffsets(-4470, -1753, 2100, 94, 129, 145);
 ```
 
 Alternatively you can use the mpu6050 api as shown below to dynamically compute offsets during your application's initialization.
 
-```ts
+```javascript
 mpu6050.calibrateAccel();
 mpu6050.calibrateGyro();
 ```
@@ -141,7 +141,7 @@ The MPU6050 can be configured to generate an interrupt signal on the INT pin whe
 
 The default mode is to apply a 50 us active state pulse on the INT pin. The default active state is HIGH. Alternatively, the interrupt system can be programmed to set the INT pin to its active state when data is ready and to remain active until the interrupt is cleared. This is known as the "latch" mode.
 
-```ts
+```javascript
 // enable latch signaling mode on the INT pin 
 setInterruptLatchEnabled(true);
 ```
@@ -150,7 +150,7 @@ The data-ready interrupt is cleared by either directly reading the data-ready in
 
 Internally the "onoff" GPIO library is used for polling GPIO pins for state changes. This library lacks the polling resolution to consistently detect the 50 us active state pulses of the default INT pin signaling mode. Therefore, the "latch" mode is recommended for 
 
-```ts
+```javascript
 // Data-ready interrupt is cleared only when reading 
 // the data-ready interrupt 
 setInterruptClearMode(0);
@@ -163,7 +163,7 @@ setInterruptClearMode(1);
 The MPU6050 class constructor can accept an optional `I2COptions` parameter for specifying the I<sup>2</sup>C address and baud rate for communicating with the MPU6050 chip.
 
 The default I<sup>2</sup>COptions are:
-```ts
+```javascript
 {
   i2cAddress: 0x68,
   baudRate: 400000
@@ -188,13 +188,13 @@ Note you must enable I<sup>2</sup>C on your RPI device as it is typically not en
 
 *I set up this example with I<sup>2</sup>C enabled on my RPI running Ubuntu 20.4 and node 12.*
 
-```
+```shell
 tsc <your-example.ts>
 sudo node <your-example.js>
 ```
 
 TypeScript example code:
-```ts
+```javascript
 import { MPU6050} from "../mpu6050";
 import { Utils } from "../utils";
 import { InterruptMonitor } from "../interrupt-handler";
@@ -215,12 +215,17 @@ function main() {
 
   console.log('\nDMP initialize and calibrate...');
   imu.dmpInitialize();
+
+  // calibrate sensors
   imu.calibrateAccel();
   imu.calibrateGyro();
   imu.printActiveOffsets();
+
+  // setup interrupt
   imu.setInterruptLatchEnabled(true);
   imu.setInterruptDMPEnabled(true);
 
+  // setup interrupt event monitoring and handling
   const interruptMonitor = new InterruptMonitor(GPIO_MPU6050_DATA_PIN);
   interruptMonitor.on('data', () => {
       if (++interrupts === 1) console.log('  Receiving interrupt(s)');
@@ -234,7 +239,8 @@ function main() {
     console.log('Data error:', error.message);
   });
   interruptMonitor.start();
-  
+
+  // run for 10 seconds then shutdown process
   setTimeout(()=>{
     imu.shutdown();
     interruptMonitor.shutdown();
@@ -243,12 +249,11 @@ function main() {
   }, 10000);
 
   console.log('\nSampling data for 10 seconds');
-  imu.setDMPEnabled(true);
+  imu.setDMPEnabled(true); // start DMP, data-ready interrupts should be raised
   console.log('  Waiting for interrupts');
 }
 
 main();
-
 ```
 
 # Resources
