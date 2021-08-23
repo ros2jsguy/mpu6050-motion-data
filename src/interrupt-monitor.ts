@@ -2,7 +2,7 @@
 
 import EventEmitter = require("events");
 
-const { Gpio } = require('onoff').Gpio; // eslint-disable-line
+import { Gpio } from 'onoff'; // eslint-disable-line
 
 /**
  * Monitor a GPIO pin and emit a 'data' event with the pin

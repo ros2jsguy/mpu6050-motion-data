@@ -197,7 +197,7 @@ TypeScript example code:
 ```javascript
 import { MPU6050} from "../mpu6050";
 import { Utils } from "../utils";
-import { InterruptMonitor } from "../interrupt-handler";
+import { InterruptMonitor } from "../interrupt-monitor";
 
 const GPIO_MPU6050_DATA_PIN = 18;
 

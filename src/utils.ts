@@ -1,4 +1,4 @@
-import * as rpio from 'rpio';
+import rpio = require('rpio');
 import {MathUtils} from 'three-math-ts'
 
 export namespace Utils {

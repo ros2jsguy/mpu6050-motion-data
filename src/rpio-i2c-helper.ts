@@ -1,7 +1,7 @@
 
-import * as rpio from 'rpio';
-import { I2CHelper } from '../i2c-helper';
-import {Register} from '../mpu6050';
+import rpio = require('rpio');
+import { I2CHelper } from './i2c-helper';
+import {Register} from './mpu6050';
 
 const DEFAULT_REGBUF_SZ = 4;
 const DEFAULT_DATABUF_SZ = 42;
@@ -22,6 +22,7 @@ export class RpioI2CHelper implements I2CHelper {
   constructor(baudRate: number, regBufferSize = DEFAULT_REGBUF_SZ, dataBufferSize = DEFAULT_DATABUF_SZ) {
      // configure RPIO
      // TODO - i2c should be setup/shutdown externally as i2c may have multiple slave devices
+     console.log('rpio:', rpio, "\n", rpio.i2cBegin);
      rpio.i2cBegin();
      rpio.i2cSetBaudRate(baudRate);
 
@@ -33,7 +34,6 @@ export class RpioI2CHelper implements I2CHelper {
     // TODO revise - see note above
     rpio.i2cEnd();
   }
-
 
   /** Read a single bit from an 8-bit device register.
    * @param deviceAddr I2C slave device address

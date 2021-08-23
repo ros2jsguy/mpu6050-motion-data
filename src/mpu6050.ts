@@ -3,7 +3,7 @@
 import printf = require('printf');
 import { Euler, Quaternion, Vector3 } from 'three-math-ts';
 import {I2CHelper} from './i2c-helper';
-import { RpioI2CHelper } from './i2c/rpio-i2c-helper';
+import { RpioI2CHelper } from './rpio-i2c-helper';
 import { Utils } from './utils';
 
 export { Euler, Quaternion, Vector3 } from 'three-math-ts';
