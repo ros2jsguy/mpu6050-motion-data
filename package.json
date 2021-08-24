@@ -1,6 +1,6 @@
 {
   "name": "@ros2jsguy/mpu6050-motion-data",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Efficient 6-DOF MPU6050 driver providing fused orientation (quaternion), acceleration, gyro and sensor offset calibration data via the on-device digital motion processor (DMP).",
   "main": "dist/index.js",
   "bin": {

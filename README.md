@@ -86,7 +86,7 @@ imu.dmpPacketAvailable() // buf data invalid
 
 # Using Digital Motion Processing (DMP)
 
-Where this library excels over other Nodejs MPU6050 drivers is its access to the MPU6050 Digital Motion Processing (DPU) Unit. The DPU performs complex sensor fusion computation directly on the MPU6050 which can greatly improve the performance of your application. 
+Where this library excels over other Nodejs MPU6050 drivers is its access to the MPU6050 Digital Motion Processing (DPU) Unit. The DPU performs complex sensor fusion computation directly on the MPU6050 which can greatly improve the performance of your application. See [The MPU6050 Explained](https://mjwhite8119.github.io/Robots/mpu6050) for an expanded description of the DMP feautures.
 
 Note that use of DMP is optional.  
 
@@ -133,8 +133,7 @@ mpu6050.calibrateAccel();
 mpu6050.calibrateGyro();
 ```
 
-
-# Hardware Interrupts
+# Data-Ready Hardware Interrupt
 The MPU6050 can be configured to generate an interrupt signal on the INT pin when data is ready. The INT pin has two modes for signalling a data-ready event.
 
 ![GY-521 breakout board](docs/mpu6050-int.png)
@@ -148,7 +147,7 @@ setInterruptLatchEnabled(true);
 
 The data-ready interrupt is cleared by either directly reading the data-ready interrupt register or by configuring the interrupt system to automatically clear the data-ready interrupt when any register is read.
 
-Internally the "onoff" GPIO library is used for polling GPIO pins for state changes. This library lacks the polling resolution to consistently detect the 50 us active state pulses of the default INT pin signaling mode. Therefore, the "latch" mode is recommended for 
+Internally the "onoff" GPIO library is used for polling GPIO pins for state changes. This library lacks the polling resolution to consistently detect the 50 us active state pulses of the default INT pin signaling mode. Therefore, the "latch" mode is recommended where the sensitivity of your GPIO pin polling may miss a data-ready interrupt signal.  
 
 ```javascript
 // Data-ready interrupt is cleared only when reading 
@@ -195,9 +194,7 @@ sudo node <your-example.js>
 
 TypeScript example code:
 ```javascript
-import { MPU6050} from "../mpu6050";
-import { Utils } from "../utils";
-import { InterruptMonitor } from "../interrupt-monitor";
+import { InterruptMonitor, MPU6050, Utils } from "@ros2jsguy/mpu6050-motion-data";
 
 const GPIO_MPU6050_DATA_PIN = 18;
 
@@ -260,6 +257,7 @@ main();
 1. [MPU-6050 Specification Datasheet](https://www.digikey.com/en/datasheets/tdk-invensense/tdk-invensense-rm-mpu-6000a)
 2. [MPU-6050 Register Map and Descriptions](https://www.digikey.com/en/datasheets/tdk-invensense/tdk-invensense-rm-mpu-6000a)
 3. [Motion Driver 6.1 - User Guide](https://www.digikey.com/en/pdf/i/invensense/motion-driver-6-1-user-guide)
+4. [The MPU6050 Explained](https://mjwhite8119.github.io/Robots/mpu6050)
 4. [mpu6050 Arduino Library Github repo by Electronic Cats](https://github.com/ElectronicCats/mpu6050)
 5. [I<sup>2</sup>Cdevlib MPU6050 library](https://www.i2cdevlib.com/devices/mpu6050)
 
