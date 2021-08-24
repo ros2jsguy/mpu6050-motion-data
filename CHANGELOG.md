@@ -1,5 +1,8 @@
 # Changelog
 
+# 0.2.1 - 20210824
+This is a quick fix that now exports the InterruptMonitor class introduced in 0.2.0. 
+
 # 0.2.0 - 20210820
 
 ## Added
